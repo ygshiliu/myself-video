@@ -1,0 +1,220 @@
+
+今日任务
+	
+	搭建开发环境
+	  >安装Navicat
+	  >安装EZDML
+	  >统一开发环境
+	  >准备json数据的js文件
+	
+
+1.安装Navicat
+2.EZDML
+	
+	模型 --- 数据库
+	
+	注：整型不设置
+	
+3.统一开发环境
+
+	IDE：sts 或 eclipse
+	jdk1.8
+	项目管理工具maven 3.2
+	
+	settings.xml修改：
+	①<localRepository>H:\RepMaven</localRepository>
+	②  <mirrors>
+		<mirror>			  
+			<id>alimaven</id>			  
+			<name>aliyun maven</name>			  
+			<url>http://maven.aliyun.com/nexus/content/groups/public/</url> 	
+			<mirrorOf>central</mirrorOf>        
+		</mirror>
+	  </mirrors>
+	 ③
+	 
+	 <profile>
+		<id>jdk-1.8</id>
+		<activation>
+			<activeByDefault>true</activeByDefault>
+			<jdk>1.8</jdk>
+		</activation>	
+		<properties>
+			<maven.compiler.source>1.8</maven.compiler.source>
+			<maven.compiler.target>1.8</maven.compiler.target>
+			<maven.compiler.compilerVersion>1.8</maven.compiler.compilerVersion>
+		</properties>
+	</profile>
+	
+4.准备json数据的js文件
+
+	① 生成js文件，文件命名规则：
+		class_1.js      #‘class_1’前缀+“.jsp"后缀
+		class_2_6.js	#‘class_2_”前缀+“1级分类id"+".js”后缀
+		tm_class_1_6.js #“tm_class_1_”前缀+“1级分类id"+".js”后缀
+	
+	
+	②创建jar工程 	
+	③ 添加依赖
+		<dependency>
+			<groupId>mysql</groupId>
+			<artifactId>mysql-connector-java</artifactId>
+			<version>5.1.37</version>
+		</dependency>
+		<dependency>
+			<groupId>org.mybatis</groupId>
+			<artifactId>mybatis</artifactId>
+			<version>3.2.8</version>
+		</dependency>
+		<dependency>
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+			<version>2.2.4</version>
+		</dependency>
+	④ 添加配置
+		jdbc.properties
+		driver=com.mysql.jdbc.Driver
+		url=jdbc:mysql://localhost:3306/atguigu?useUnicode=true&characterEncoding=UTF8
+		jdbc.username=root
+		jdbc.password=root
+
+		
+		mybatis-config.xml
+		<?xml version="1.0" encoding="UTF-8" ?>
+		<!DOCTYPE configuration
+		PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+		"http://mybatis.org/dtd/mybatis-3-config.dtd">
+		<configuration>
+			<properties resource="jdbc.properties"></properties>
+			<environments default="development">
+				<environment id="development">
+					<transactionManager type="JDBC" />
+					<dataSource type="POOLED">
+						<property name="driver" value="${driver}" />
+						<property name="url" value="${url}" />
+						<property name="username" value="${jdbc.username}" />
+						<property name="password" value="${jdbc.password}" />
+					</dataSource>
+				</environment>
+			</environments>
+			<mappers>
+				<package name="com.wnn.mapper"/>
+			</mappers>
+		</configuration>
+
+
+
+		
+		*-mapper.xml
+		<?xml version="1.0" encoding="UTF-8" ?>
+		<!DOCTYPE mapper
+		PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+		"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+		<mapper namespace="com.wnn.mapper.Class1Mapper">
+			<select id="select_class1_all" resultType="com.wnn.bean.T_MALL_CLASS_1">
+				select * from t_mall_class_1
+			</select>
+		</mapper>
+	
+	⑤ 单元测试
+	
+	@Test
+	public void test() throws Exception {
+
+		//sqlsessionFactory
+		String resource = "mybatis-config.xml";
+		InputStream inputStream = Resources.getResourceAsStream(resource);
+		SqlSessionFactory sqlSessionFactory = new SqlSessionFactoryBuilder().build(inputStream);
+		
+		//获取session
+		SqlSession session = sqlSessionFactory.openSession();
+		
+		//获取mapper
+		Class1Mapper class1Mapper = session.getMapper(Class1Mapper.class);
+		
+		//操作方法
+		List<T_MALL_CLASS_1> class1_all = class1Mapper.select_class1_all();
+		
+		//转json数据
+		Gson gson = new Gson();
+		String class1str = gson.toJson(class1_all);
+		System.out.println(class1str);
+		
+		//生成文件
+		FileOutputStream out = new FileOutputStream("d:/class_1.js");
+		out.write(class1str.getBytes());
+		out.close();
+		
+		/////////////////////////////////////////////////////////////
+		//二级分类
+		//获取mapper
+		Class2Mapper class2Mapper = session.getMapper(Class2Mapper.class);
+		//遍历
+		for (T_MALL_CLASS_1 t_MALL_CLASS_1 : class1_all) {
+			
+			int class1_id = t_MALL_CLASS_1.getId();
+			
+			//操作方法
+			List<T_MALL_CLASS_2> class2_all = class2Mapper.select_class2_all(class1_id);
+			
+			//转json
+			String class2str = gson.toJson(class2_all);
+			System.out.println(class2str);
+			
+			//生成文件：‘class_2_”前缀+“1级分类id"+".js”后缀
+			out = new FileOutputStream("d:/class_2_"+class1_id+".js");
+			out.write(class2str.getBytes());
+			out.close();
+			
+		}
+		///////////////////////////////////////////////////////////////
+		//生成商标
+		//获取mapper
+			 TMMapper tmMapper = session.getMapper(TMMapper.class);
+			//遍历
+			for (T_MALL_CLASS_1 t_MALL_CLASS_1 : class1_all) {
+				
+				int class1_id = t_MALL_CLASS_1.getId();
+				
+				//操作方法
+				List<T_MALL_TRADE_MARK> tm_all = tmMapper.select_tm_all(class1_id);	
+				//转json
+				String tm_all_str = gson.toJson(tm_all);
+				System.out.println(tm_all_str);
+				
+				//生成文件：“tm_class_1_”前缀+“1级分类id"+".js”后缀
+				out = new FileOutputStream("d:/tm_class_1_"+class1_id+".js");
+				out.write(tm_all_str.getBytes());
+				out.close();
+				
+			}
+	
+		
+		
+		
+		/////////////////////////////////////////////////////////////
+		//关闭session
+		session.close();
+		
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+
